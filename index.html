@@ -5,111 +5,167 @@
 <title>NexWeb Search</title>
 <style>
   body {
-    background:#121212;color:#eee;font-family:sans-serif;margin:0;
-    display:flex;flex-direction:column;height:100vh;
+    background:#0f0f0f;
+    color:#eee;
+    font-family:sans-serif;
+    margin:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:40px;
   }
   header {
-    padding:20px;background:#1f1f1f;display:flex;gap:10px;
-    align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);
+    display:flex;
+    width:90%;
+    max-width:800px;
+    background:#1a1a1a;
+    border-radius:32px;
+    padding:12px;
+    box-shadow:0 0 25px 4px rgba(0,255,180,0.4),
+               0 0 60px 10px rgba(0,120,255,0.3);
+    gap:10px;
+    margin-bottom:20px;
   }
   input {
-    flex:1;padding:10px;border:none;border-radius:8px;
-    font-size:1rem;background:#333;color:#eee;
+    flex:1;
+    padding:14px 18px;
+    border:none;
+    border-radius:24px;
+    font-size:1.1rem;
+    background:#222;
+    color:#eee;
+    outline:none;
   }
   button {
-    background:#3a86ff;border:none;color:#fff;padding:10px 16px;
-    border-radius:8px;font-size:1rem;cursor:pointer;
+    background:linear-gradient(90deg,#3a86ff,#1aff9c);
+    border:none;
+    color:#fff;
+    font-weight:bold;
+    padding:14px 20px;
+    border-radius:24px;
+    font-size:1.1rem;
+    cursor:pointer;
+    box-shadow:0 0 10px rgba(0,255,180,0.4),
+               0 0 20px rgba(0,120,255,0.3);
+    transition:transform 0.1s;
   }
-  button:hover {background:#5a9dff;}
-  #results {
-    flex:1;overflow:auto;padding:20px;display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-    gap:16px;
+  button:hover {
+    transform:scale(1.05);
+  }
+  #resultsContainer {
+    width:90%;
+    max-width:800px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    overflow-y:auto;
+    max-height:70vh;
   }
   .card {
-    background:#1e1e1e;border-radius:12px;padding:12px;
-    display:flex;flex-direction:column;gap:6px;
-    box-shadow:0 0 10px rgba(0,0,0,0.4);
+    background:#1e1e1e;
+    border-radius:32px;
+    padding:16px;
+    box-shadow:0 0 15px rgba(0,255,180,0.3),
+               0 0 30px rgba(0,120,255,0.2);
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    transition:transform 0.2s;
   }
-  .card h3 {margin:0;font-size:1.1rem;color:#3a86ff;}
-  .card p {margin:0;font-size:0.9rem;color:#ccc;}
+  .card:hover {
+    transform:translateY(-3px);
+  }
+  .card h3 {
+    margin:0;
+    font-size:1.2rem;
+    color:#1aff9c;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .card p {
+    margin:0;
+    font-size:0.9rem;
+    color:#ccc;
+  }
   .card a {
-    color:#fff;text-decoration:none;font-size:0.9rem;
-    background:#333;padding:6px 10px;border-radius:6px;
-    align-self:flex-start;margin-top:6px;cursor:pointer;
+    align-self:flex-start;
+    margin-top:6px;
+    text-decoration:none;
+    color:#fff;
+    background:linear-gradient(90deg,#3a86ff,#1aff9c);
+    padding:8px 14px;
+    border-radius:24px;
+    font-weight:bold;
+    box-shadow:0 0 8px rgba(0,255,180,0.4),
+               0 0 16px rgba(0,120,255,0.3);
+    cursor:pointer;
     display:inline-block;
   }
-  .card a:hover {background:#555;}
+  .card a:hover {
+    opacity:0.9;
+  }
 </style>
 </head>
 <body>
 <header>
-  <input id="query" placeholder="Search for HTML files…">
+  <input id="query" placeholder="Search GitHub HTML…">
   <button id="searchBtn">Search</button>
 </header>
-<div id="results"></div>
+<div id="resultsContainer"></div>
 
 <script>
 async function searchGitHub() {
   const q = document.getElementById('query').value.trim();
   if (!q) return;
-  document.getElementById('results').innerHTML = '<p>Searching…</p>';
+  const results = document.getElementById('resultsContainer');
+  results.innerHTML = '<p>Searching…</p>';
 
   try {
-    // Search for html code files containing q
-    const resp = await fetch(`https://api.github.com/search/code?q=${encodeURIComponent(q)}+extension:html&per_page=50`);
+    // search code for .html files containing keyword
+    const resp = await fetch(`https://api.github.com/search/code?q=${encodeURIComponent(q)}+extension:html&per_page=20`);
     const data = await resp.json();
 
     if (!data.items || data.items.length === 0) {
-      document.getElementById('results').innerHTML = '<p>No HTML files found.</p>';
+      results.innerHTML = '<p>No matching HTML files found.</p>';
       return;
     }
 
-    const allowedNames = ['index.html', 'main.html', 'home.html'];
-    const cards = [];
-
+    let html = '';
     for (const item of data.items) {
-      const fileName = item.name.toLowerCase();
-      if (!allowedNames.includes(fileName)) continue; // only allow index/main/home
-
-      const repoName = item.repository.full_name;
-      const repoDesc = item.repository.description || 'No description';
-      const filePath = item.path;
       const owner = item.repository.owner.login;
-      const nexUrl = `Nex://${owner}.web/${item.repository.name}/${filePath}`;
-
-      cards.push(`
+      const repo = item.repository.name;
+      const repoFull = item.repository.full_name;
+      const desc = item.repository.description || 'No description';
+      const path = item.path;
+      const nexUrl = `Nex://${owner}.web/${repo}/${path}`;
+      html += `
         <div class="card">
-          <h3>${repoName}</h3>
-          <p>${repoDesc}</p>
-          <p><strong>File:</strong> ${filePath}</p>
+          <h3>${repoFull}</h3>
+          <p>${desc}</p>
+          <p><strong>File:</strong> ${path}</p>
           <a onclick="openInNex('${nexUrl}')">Open in NexWeb</a>
         </div>
-      `);
+      `;
     }
-
-    if (cards.length === 0) {
-      document.getElementById('results').innerHTML = '<p>No matching index/main/home HTML files found.</p>';
-    } else {
-      document.getElementById('results').innerHTML = cards.join('');
-    }
+    results.innerHTML = html;
   } catch (err) {
     console.error(err);
-    document.getElementById('results').innerHTML = '<p>Error searching GitHub.</p>';
+    document.getElementById('resultsContainer').innerHTML = '<p>Error searching GitHub.</p>';
   }
 }
 
-// open result in a new NexWeb tab
 function openInNex(url) {
+  // communicate with parent NexWeb instance
   if (parent && typeof parent.addTab === 'function') {
     parent.addTab(url);
   } else {
-    alert('Could not communicate with NexWeb parent frame.');
+    alert('NexWeb parent frame not found.');
   }
 }
 
 document.getElementById('searchBtn').onclick = searchGitHub;
-document.getElementById('query').addEventListener('keydown', e=>{
+document.getElementById('query').addEventListener('keydown', e => {
   if (e.key === 'Enter') searchGitHub();
 });
 </script>
