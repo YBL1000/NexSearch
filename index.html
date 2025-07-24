@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NexWeb Search</title>
+<style>
+  body {
+    background:#121212;color:#eee;font-family:sans-serif;margin:0;
+    display:flex;flex-direction:column;height:100vh;
+  }
+  header {
+    padding:20px;background:#1f1f1f;display:flex;gap:10px;
+    align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);
+  }
+  input {
+    flex:1;padding:10px;border:none;border-radius:8px;
+    font-size:1rem;background:#333;color:#eee;
+  }
+  button {
+    background:#3a86ff;border:none;color:#fff;padding:10px 16px;
+    border-radius:8px;font-size:1rem;cursor:pointer;
+  }
+  button:hover {background:#5a9dff;}
+  #results {
+    flex:1;overflow:auto;padding:20px;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+    gap:16px;
+  }
+  .card {
+    background:#1e1e1e;border-radius:12px;padding:12px;
+    display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 0 10px rgba(0,0,0,0.4);
+  }
+  .card h3 {margin:0;font-size:1.1rem;color:#3a86ff;}
+  .card p {margin:0;font-size:0.9rem;color:#ccc;}
+  .card a {
+    color:#fff;text-decoration:none;font-size:0.9rem;
+    background:#333;padding:6px 10px;border-radius:6px;
+    align-self:flex-start;margin-top:6px;
+  }
+  .card a:hover {background:#555;}
+</style>
+</head>
+<body>
+<header>
+  <input id="query" placeholder="Search for HTML files or repos…">
+  <button id="searchBtn">Search</button>
+</header>
+<div id="results"></div>
+
+<script>
+async function searchGitHub() {
+  const q = document.getElementById('query').value.trim();
+  if (!q) return;
+  document.getElementById('results').innerHTML = 'Searching…';
+
+  try {
+    // search repositories
+    let repoResp = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(q)}+in:name,description&per_page=10`);
+    let repoData = await repoResp.json();
+
+    let cards = [];
+
+    for (const repo of repoData.items) {
+      // fetch file list in main branch
+      let contentsResp = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/contents`);
+      if (!contentsResp.ok) continue;
+      let contents = await contentsResp.json();
+      let htmlFiles = contents.filter(f => f.name.toLowerCase().endsWith('.html'));
+
+      // create cards for each HTML file
+      htmlFiles.forEach(f => {
+        const nexUrl = `Nex://${repo.owner.login}.web/${repo.name}/${f.name}`;
+        cards.push(`
+          <div class="card">
+            <h3>${repo.full_name}</h3>
+            <p>${repo.description || 'No description'}</p>
+            <p><strong>File:</strong> ${f.name}</p>
+            <a href="${nexUrl}" target="_blank">Open in NexWeb</a>
+          </div>
+        `);
+      });
+    }
+
+    if (cards.length === 0) {
+      document.getElementById('results').innerHTML = '<p>No HTML files found.</p>';
+    } else {
+      document.getElementById('results').innerHTML = cards.join('');
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById('results').innerHTML = '<p>Error searching GitHub.</p>';
+  }
+}
+
+document.getElementById('searchBtn').onclick = searchGitHub;
+document.getElementById('query').addEventListener('keydown', e=>{
+  if(e.key==='Enter') searchGitHub();
+});
+</script>
+</body>
+</html>
